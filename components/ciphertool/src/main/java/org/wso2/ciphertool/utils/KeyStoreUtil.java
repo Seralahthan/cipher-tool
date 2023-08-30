@@ -23,6 +23,8 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.security.PrivateKey;
+import java.security.UnrecoverableKeyException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -35,7 +37,7 @@ public class KeyStoreUtil {
      * Initializes the Cipher
      * @return cipher cipher
      */
-    public static Cipher initializeCipher() {
+    public static Cipher initializeCipher(boolean isDecrypt) {
         Cipher cipher;
         String keyStoreName = ((Utils.isPrimaryKeyStore()) ? "Primary" : "Internal");
         String keyStoreFile = System.getProperty(Constants.KEY_LOCATION_PROPERTY);
@@ -54,14 +56,19 @@ public class KeyStoreUtil {
 
         KeyStore primaryKeyStore = getKeyStore(keyStoreFile, password, keyType);
         try {
-            Certificate certs = primaryKeyStore.getCertificate(keyAlias);
             String cipherTransformation = System.getProperty(Constants.CIPHER_TRANSFORMATION_SYSTEM_PROPERTY);
             if (cipherTransformation != null) {
                 cipher = Cipher.getInstance(cipherTransformation);
             } else {
                 cipher = Cipher.getInstance("RSA");
             }
-            cipher.init(Cipher.ENCRYPT_MODE, certs);
+            if (!isDecrypt) {
+                Certificate certs = primaryKeyStore.getCertificate(keyAlias);
+                cipher.init(Cipher.ENCRYPT_MODE, certs);
+            } else {
+                PrivateKey privateKey = (PrivateKey) primaryKeyStore.getKey(keyAlias, password.toCharArray());
+                cipher.init(Cipher.DECRYPT_MODE, privateKey);
+            }
         } catch (KeyStoreException e) {
             throw new CipherToolException("Error initializing Cipher ", e);
         } catch (NoSuchAlgorithmException e) {
@@ -69,6 +76,8 @@ public class KeyStoreUtil {
         } catch (NoSuchPaddingException e) {
             throw new CipherToolException("Error initializing Cipher ", e);
         } catch (InvalidKeyException e) {
+            throw new CipherToolException("Error initializing Cipher ", e);
+        } catch (UnrecoverableKeyException e) {
             throw new CipherToolException("Error initializing Cipher ", e);
         }
 

@@ -58,7 +58,14 @@ public class CipherTool {
     public static void main(String[] args) {
 
         initialize(args);
-        Cipher cipher = KeyStoreUtil.initializeCipher();
+        Cipher cipher;
+        if (System.getProperty(Constants.DECRYPT) != null &&
+            System.getProperty(Constants.DECRYPT).equals(Constants.TRUE)) {
+            cipher = KeyStoreUtil.initializeCipher(true);
+        } else {
+            cipher = KeyStoreUtil.initializeCipher(false);
+        }
+
         if (System.getProperty(Constants.CONFIGURE) != null &&
             System.getProperty(Constants.CONFIGURE).equals(Constants.TRUE)) {
             File deploymentTomlFile = new File(Utils.getDeploymentFilePath());
@@ -82,6 +89,9 @@ public class CipherTool {
         } else if (System.getProperty(Constants.CHANGE) != null &&
                    System.getProperty(Constants.CHANGE).equals(Constants.TRUE)) {
             changePassword(cipher);
+        } else if (System.getProperty(Constants.DECRYPT) != null &&
+                System.getProperty(Constants.DECRYPT).equals(Constants.TRUE)) {
+            decryptedValue(cipher);
         } else {
             encryptedValue(cipher);
         }
@@ -109,6 +119,8 @@ public class CipherTool {
                 if ((Constants.CONFIGURE).equals(propertyName)) {
                     System.setProperty(property, Constants.TRUE);
                 } else if ((Constants.CHANGE).equals(propertyName)) {
+                    System.setProperty(property, Constants.TRUE);
+                } else if ((Constants.DECRYPT).equals(propertyName)) {
                     System.setProperty(property, Constants.TRUE);
                 } else if ((Constants.CIPHER_TRANSFORMATION_SYSTEM_PROPERTY).equals(propertyName)) {
                     if (!StringUtils.isBlank(value)) {
@@ -147,6 +159,10 @@ public class CipherTool {
 
         System.out.println("\t-Dchange\t\t This option would allow user to change the specific password which has " +
                            "been secured\n");
+
+        System.out.println("\t-Ddecrypt\t\t This option would allow user to decrypt and get the value when when " +
+                "the encrypted text provided.");
+
         System.out.println("\t-Dpassword=<password>\t This option would allow user to provide the password as a " +
                            "command line argument. NOTE: Providing the password in command line arguments list is " +
                            "not recommended.\n");
@@ -168,6 +184,24 @@ public class CipherTool {
             System.out.println("\nEncrypted value is : \n" + encryptedText + "\n");
         } else {
             throw new CipherToolException("Error : Password does not match");
+        }
+    }
+
+    private static void decryptedValue(Cipher cipher) {
+        String encryptedKey = Utils.getValueFromConsole("Enter Encrypted text : ", false);
+        if (!encryptedKey.isEmpty()) {
+            String decryptedText = null;
+            try {
+                byte[] decryptedbyte =  cipher.doFinal(DatatypeConverter.parseBase64Binary(encryptedKey));
+                decryptedText = new String(decryptedbyte);
+                System.out.println("\nDecrypted value is : \n" + decryptedText + "\n");
+            } catch (BadPaddingException e) {
+                throw new CipherToolException("Error : Cannot decrypt the value", e);
+            } catch (IllegalBlockSizeException e) {
+                throw new CipherToolException("Error : Cannot decrypt the value", e);
+            }
+        } else {
+            throw new CipherToolException("Error : Invalid input");
         }
     }
 
